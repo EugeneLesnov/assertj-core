@@ -16,19 +16,18 @@ import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.assertj.core.error.ShouldBeDirectory.shouldBeDirectory;
-import static org.assertj.core.error.ShouldBeEmptyDirectory.shouldBeEmptyDirectory;
 import static org.assertj.core.error.ShouldExist.shouldExist;
+import static org.assertj.core.error.ShouldNotContain.directoryShouldNotContain;
 import static org.assertj.core.util.AssertionsUtil.expectAssertionError;
 import static org.assertj.core.util.FailureMessages.actualIsNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Predicate;
 
 import org.assertj.core.internal.PathsBaseTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * @author Valeriy Vyrva
  */
-class Paths_assertIsEmptyDirectory_Test extends PathsBaseTest {
+class Paths_assertIsDirectoryNotContaining_with_Predicate_Test extends PathsBaseTest {
 
   @BeforeEach
   void setUpNioFilesWrapper() throws IOException {
@@ -45,9 +44,24 @@ class Paths_assertIsEmptyDirectory_Test extends PathsBaseTest {
   }
 
   @Test
-  void should_fail_if_actual_is_null() {
+  void should_fail_if_filter_is_null() throws IOException {
+    // GIVEN
+    Path actual = Files.createDirectory(tempDir.resolve("actual"));
+    Predicate<Path> filter = null;
     // WHEN
-    AssertionError error = expectAssertionError(() -> paths.assertIsEmptyDirectory(info, null));
+    Throwable thrown = catchThrowable(() -> paths.assertIsDirectoryNotContaining(info, actual, filter));
+    // THEN
+    then(thrown).isInstanceOf(NullPointerException.class)
+                .hasMessage("The paths filter should not be null");
+  }
+
+  @Test
+  void should_fail_if_actual_is_null() {
+    // GIVEN
+    Path actual = null;
+    Predicate<Path> filter = path -> true;
+    // WHEN
+    AssertionError error = expectAssertionError(() -> paths.assertIsDirectoryNotContaining(info, actual, filter));
     // THEN
     then(error).hasMessage(actualIsNull());
   }
@@ -56,8 +70,9 @@ class Paths_assertIsEmptyDirectory_Test extends PathsBaseTest {
   void should_fail_if_actual_does_not_exist() {
     // GIVEN
     Path actual = tempDir.resolve("non-existent");
+    Predicate<Path> filter = path -> true;
     // WHEN
-    AssertionError error = expectAssertionError(() -> paths.assertIsEmptyDirectory(info, actual));
+    AssertionError error = expectAssertionError(() -> paths.assertIsDirectoryNotContaining(info, actual, filter));
     // THEN
     then(error).hasMessage(shouldExist(actual).create());
   }
@@ -66,42 +81,56 @@ class Paths_assertIsEmptyDirectory_Test extends PathsBaseTest {
   void should_fail_if_actual_is_not_a_directory() throws IOException {
     // GIVEN
     Path actual = Files.createFile(tempDir.resolve("file"));
+    Predicate<Path> filter = path -> true;
     // WHEN
-    AssertionError error = expectAssertionError(() -> paths.assertIsEmptyDirectory(info, actual));
+    AssertionError error = expectAssertionError(() -> paths.assertIsDirectoryNotContaining(info, actual, filter));
     // THEN
     then(error).hasMessage(shouldBeDirectory(actual).create());
+  }
+
+  @Test
+  void should_rethrow_IOException_as_UncheckedIOException() throws Exception {
+    // GIVEN
+    Path actual = Files.createDirectory(tempDir.resolve("actual"));
+    Predicate<Path> filter = path -> true;
+    IOException cause = new IOException("boom!");
+    given(nioFilesWrapper.newDirectoryStream(actual, filter)).willThrow(cause);
+    // WHEN
+    Throwable thrown = catchThrowable(() -> paths.assertIsDirectoryNotContaining(info, actual, filter));
+    // THEN
+    then(thrown).isInstanceOf(UncheckedIOException.class)
+                .hasCause(cause);
   }
 
   @Test
   void should_pass_if_actual_is_empty() throws IOException {
     // GIVEN
     Path actual = Files.createDirectory(tempDir.resolve("actual"));
+    Predicate<Path> filter = path -> true;
     // WHEN/THEN
-    paths.assertIsEmptyDirectory(info, actual);
+    paths.assertIsDirectoryNotContaining(info, actual, filter);
   }
 
   @Test
-  void should_fail_if_actual_is_not_empty() throws IOException {
+  void should_fail_if_actual_contains_at_least_one_path_matching_the_given_predicate() throws IOException {
     // GIVEN
     Path actual = Files.createDirectory(tempDir.resolve("actual"));
     Path file = Files.createFile(actual.resolve("file"));
+    Predicate<Path> filter = Files::isRegularFile;
     // WHEN
-    AssertionError error = expectAssertionError(() -> paths.assertIsEmptyDirectory(info, actual));
+    AssertionError error = expectAssertionError(() -> paths.assertIsDirectoryNotContaining(info, actual, filter));
     // THEN
-    then(error).hasMessage(shouldBeEmptyDirectory(actual, singletonList(file)).create());
+    then(error).hasMessage(directoryShouldNotContain(actual, singletonList(file.toString()), "the given filter").create());
   }
 
   @Test
-  void should_rethrow_IOException_as_UncheckedIOException() throws IOException {
+  void should_pass_if_actual_does_not_contain_any_paths_matching_the_given_predicate() throws IOException {
     // GIVEN
     Path actual = Files.createDirectory(tempDir.resolve("actual"));
-    IOException exception = new IOException("boom!");
-    willThrow(exception).given(nioFilesWrapper).newDirectoryStream(eq(actual), any());
-    // WHEN
-    Throwable thrown = catchThrowable(() -> paths.assertIsEmptyDirectory(info, actual));
-    // THEN
-    then(thrown).isInstanceOf(UncheckedIOException.class)
-                .hasCause(exception);
+    Files.createDirectory(actual.resolve("directory"));
+    Predicate<Path> filter = Files::isRegularFile;
+    // WHEN/THEN
+    paths.assertIsDirectoryNotContaining(info, actual, filter);
   }
 
 }
