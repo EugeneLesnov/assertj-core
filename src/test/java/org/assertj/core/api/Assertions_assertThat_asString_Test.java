@@ -29,6 +29,12 @@ class Assertions_assertThat_asString_Test {
   }
 
   @Test
+  void blahblah() {
+    String stringAsObject = "hello world";
+    assertThat(stringAsObject).containsAnyOf("test", "string");
+  }
+
+  @Test
   void should_pass_string_asserts_on_non_string_objects_with_asString() {
     Object nonString = new Object();
     assertThat(nonString).asString().isEqualTo(nonString.toString());

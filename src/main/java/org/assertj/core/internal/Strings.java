@@ -33,9 +33,7 @@ import static org.assertj.core.error.ShouldBeLowerCase.shouldBeLowerCase;
 import static org.assertj.core.error.ShouldBeNullOrEmpty.shouldBeNullOrEmpty;
 import static org.assertj.core.error.ShouldBeSubstring.shouldBeSubstring;
 import static org.assertj.core.error.ShouldBeUpperCase.shouldBeUpperCase;
-import static org.assertj.core.error.ShouldContainCharSequence.shouldContain;
-import static org.assertj.core.error.ShouldContainCharSequence.shouldContainIgnoringCase;
-import static org.assertj.core.error.ShouldContainCharSequence.shouldContainIgnoringWhitespaces;
+import static org.assertj.core.error.ShouldContainCharSequence.*;
 import static org.assertj.core.error.ShouldContainCharSequenceOnlyOnce.shouldContainOnlyOnce;
 import static org.assertj.core.error.ShouldContainOneOrMoreWhitespaces.shouldContainOneOrMoreWhitespaces;
 import static org.assertj.core.error.ShouldContainOnlyDigits.shouldContainOnlyDigits;
@@ -471,6 +469,14 @@ public class Strings {
       throw failures.failure(info, shouldContain(actual, values[0], comparisonStrategy));
     }
     throw failures.failure(info, shouldContain(actual, values, notFound, comparisonStrategy));
+  }
+
+  public void assertContainsAnyOf(AssertionInfo info, CharSequence actual, CharSequence... values) {
+    doCommonCheckForCharSequence(info, actual, values);
+    Set<CharSequence> found = stream(values).filter(value -> stringContains(actual, value))
+      .collect(toCollection(LinkedHashSet::new));
+    if (!found.isEmpty()) return;
+      throw failures.failure(info, shouldContainAnyOf(actual, stream(values).toArray(), comparisonStrategy));
   }
 
   /**

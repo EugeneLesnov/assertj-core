@@ -661,6 +661,11 @@ public abstract class AbstractCharSequenceAssert<SELF extends AbstractCharSequen
     return myself;
   }
 
+  public SELF containsAnyOf(CharSequence... values) {
+    strings.assertContainsAnyOf(info, actual, values);
+    return myself;
+  }
+
   /**
    * Verifies that the actual {@code CharSequence} contains all the {@code CharSequence}s of the given Iterable.
    * <p>
